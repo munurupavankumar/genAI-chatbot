@@ -1,171 +1,310 @@
 // File: frontend/src/App.jsx
-import React, { useState } from 'react';
-import axios from 'axios'; // Make sure to install axios: npm install axios
-import './App.css';
+import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
+import { Paperclip, Send, Loader, File, FileText, Image, Globe, X } from 'lucide-react';
 
 function App() {
-  const [textInput, setTextInput] = useState('');
-  const [urlInput, setUrlInput] = useState('');
-  const [fileType, setFileType] = useState('');
-  const [summary, setSummary] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [inputMethod, setInputMethod] = useState('text'); // 'text' or 'url'
+  const [showFileSelector, setShowFileSelector] = useState(false);
+  const [filePath, setFilePath] = useState('');
+  const [fileType, setFileType] = useState('');
+  
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError('');
-    setSummary('');
+    
+    // Validate input
+    if (!inputText.trim() && !filePath.trim()) {
+      setError('Please enter text or select a file');
+      return;
+    }
+    
+    // Add user message to chat
+    const userMessage = filePath ? `Summarize this file: ${filePath}` : inputText;
+    const newUserMessage = {
+      id: Date.now(),
+      text: userMessage,
+      sender: 'user',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    
+    setMessages(prev => [...prev, newUserMessage]);
+    setInputText('');
+    setFilePath('');
+    setShowFileSelector(false);
     setIsLoading(true);
 
-    // Construct request payload based on input method
+    // Construct request payload
     const requestData = {};
     
-    if (inputMethod === 'text' && textInput.trim() !== '') {
-      requestData.text = textInput;
-    } else if (inputMethod === 'url' && urlInput.trim() !== '') {
-      requestData.url = urlInput;
-      if (fileType.trim() !== '') {
+    if (filePath) {
+      requestData.url = filePath;
+      if (fileType) {
         requestData.file_type = fileType;
       }
     } else {
-      setError(`Please provide ${inputMethod === 'text' ? 'text' : 'a URL'}.`);
-      setIsLoading(false);
-      return;
+      requestData.text = inputText;
     }
 
-    console.log('Sending request data:', requestData); // Debug log
-
     try {
-      // Using axios instead of fetch
       const response = await axios.post('http://localhost:8000/summarize', requestData, {
         headers: {
           'Content-Type': 'application/json',
         }
       });
       
-      console.log('Response received:', response.data);
-      setSummary(response.data.summary);
+      // Add bot response to chat
+      const newBotMessage = {
+        id: Date.now() + 1,
+        text: response.data.summary,
+        sender: 'bot',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setMessages(prev => [...prev, newBotMessage]);
     } catch (error) {
       console.error('Error details:', error);
       
-      // More detailed error handling with axios
+      let errorMessage = 'An error occurred';
+      
       if (error.response) {
-        // The server responded with a status code outside the 2xx range
-        console.error('Server response:', error.response.data);
-        setError(`Server error: ${error.response.status} - ${error.response.data.detail || 'Unknown error'}`);
+        errorMessage = `Error: ${error.response.status} - ${error.response.data.detail || 'Unknown error'}`;
       } else if (error.request) {
-        // The request was made but no response was received
-        console.error('No response received:', error.request);
-        setError('No response from server. Check if the backend is running.');
+        errorMessage = 'No response from server. Check if the backend is running.';
       } else {
-        // Something happened in setting up the request
-        setError(`Request error: ${error.message}`);
+        errorMessage = `Request error: ${error.message}`;
       }
+      
+      // Add error message to chat
+      const errorBotMessage = {
+        id: Date.now() + 1,
+        text: errorMessage,
+        sender: 'bot',
+        error: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setMessages(prev => [...prev, errorBotMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputMethodChange = (method) => {
-    setInputMethod(method);
-    setError('');
+  const handleFilePathChange = (e) => {
+    setFilePath(e.target.value);
+    
+    // Auto-detect file type from extension
+    const extension = e.target.value.split('.').pop().toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        setFileType('pdf');
+        break;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        setFileType('image');
+        break;
+      case 'txt':
+        setFileType('text');
+        break;
+      default:
+        setFileType('');
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  // File type icon mapping
+  const getFileIcon = (type) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText size={20} className="text-red-500" />;
+      case 'image':
+        return <Image size={20} className="text-blue-500" />;
+      case 'article':
+        return <Globe size={20} className="text-green-500" />;
+      default:
+        return <File size={20} className="text-gray-500" />;
+    }
   };
 
   return (
-    <div className="container">
-      <header>
-        <h1>Summarization Service</h1>
-        <p>Enter text directly or provide a URL to summarize content</p>
-      </header>
-      
-      <div className="input-method-selector">
-        <button 
-          className={inputMethod === 'text' ? 'active' : ''} 
-          onClick={() => handleInputMethodChange('text')}
-          type="button"
-        >
-          Direct Text
-        </button>
-        <button 
-          className={inputMethod === 'url' ? 'active' : ''} 
-          onClick={() => handleInputMethodChange('url')}
-          type="button"
-        >
-          URL
-        </button>
+    <div className="flex flex-col h-screen bg-gray-100">
+      {/* Header */}
+      <div className="bg-green-600 text-white p-4 shadow-md">
+        <h1 className="text-xl font-bold">Summarization Chat</h1>
       </div>
       
-      <form onSubmit={handleSubmit}>
-        {inputMethod === 'text' ? (
-          <div className="form-group">
-            <label htmlFor="text-input">Enter your text:</label>
-            <textarea
-              id="text-input"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Paste or type text to summarize..."
-              rows={6}
-              className="text-input"
-            />
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ded8]">
+        {messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500 text-center">
+              Send a message or upload a file to get a summary
+            </p>
           </div>
         ) : (
-          <>
-            <div className="form-group">
-              <label htmlFor="url-input">URL:</label>
+          messages.map((message) => (
+            <div 
+              key={message.id} 
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div 
+                className={`rounded-lg p-3 max-w-xs md:max-w-md break-words relative ${
+                  message.sender === 'user' 
+                    ? 'bg-green-100 text-black'
+                    : message.error 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-white text-black'
+                }`}
+              >
+                {message.text}
+                <div className="text-xs text-gray-500 text-right mt-1">
+                  {message.timestamp}
+                </div>
+                {/* Triangle for chat bubble */}
+                <div 
+                  className={`absolute top-0 w-0 h-0 border-8 ${
+                    message.sender === 'user'
+                      ? 'right-0 -mr-3 border-l-green-100 border-t-green-100 border-r-transparent border-b-transparent'
+                      : message.error
+                        ? 'left-0 -ml-3 border-r-red-100 border-t-red-100 border-l-transparent border-b-transparent'
+                        : 'left-0 -ml-3 border-r-white border-t-white border-l-transparent border-b-transparent'
+                  }`}
+                />
+              </div>
+            </div>
+          ))
+        )}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-gray-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <Loader size={20} className="animate-spin text-green-600" />
+                <span>Generating summary...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      {/* File selector popup */}
+      {showFileSelector && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Select File</h3>
+              <button 
+                onClick={() => setShowFileSelector(false)} 
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                File Path:
+              </label>
               <input
-                id="url-input"
                 type="text"
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="https://example.com/article"
-                className="text-input"
+                value={filePath}
+                onChange={handleFilePathChange}
+                placeholder="C:\Users\username\Documents\file.pdf"
+                className="w-full p-2 border border-gray-300 rounded-md"
               />
             </div>
             
-            <div className="form-group">
-              <label htmlFor="file-type">File Type (optional):</label>
-              <select
-                id="file-type"
-                value={fileType}
-                onChange={(e) => setFileType(e.target.value)}
-                className="select-input"
-              >
-                <option value="">Auto-detect</option>
-                <option value="pdf">PDF</option>
-                <option value="image">Image</option>
-                <option value="article">Article/Webpage</option>
-                <option value="text">Text</option>
-              </select>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                File Type:
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {['pdf', 'image', 'article', 'text'].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFileType(type)}
+                    className={`p-2 flex flex-col items-center rounded-md ${
+                      fileType === type ? 'bg-blue-100 border border-blue-500' : 'border border-gray-200'
+                    }`}
+                  >
+                    {getFileIcon(type)}
+                    <span className="text-xs mt-1 capitalize">{type}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </>
-        )}
-        
-        {error && <div className="error-message">{error}</div>}
-        
-        <button 
-          type="submit" 
-          className="submit-button" 
-          disabled={isLoading}
-        >
-          {isLoading ? 'Summarizing...' : 'Summarize'}
-        </button>
-      </form>
-      
-      {isLoading && (
-        <div className="loading">
-          <p>Processing your request...</p>
-        </div>
-      )}
-      
-      {summary && (
-        <div className="summary-container">
-          <h2>Summary</h2>
-          <div className="summary-content">
-            {summary}
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  if (!filePath.trim()) {
+                    setError('Please enter a file path');
+                    return;
+                  }
+                  handleSubmit();
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+              >
+                Submit
+              </button>
+            </div>
           </div>
         </div>
       )}
+      
+      {/* Input area */}
+      <div className="bg-gray-200 p-3">
+        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        
+        <form onSubmit={handleSubmit} className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => setShowFileSelector(true)}
+            className="p-2 bg-gray-300 rounded-full text-gray-700 hover:bg-gray-400"
+          >
+            <Paperclip size={20} />
+          </button>
+          
+          <div className="flex-1 bg-white rounded-full relative">
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message"
+              className="w-full p-3 pr-12 rounded-full resize-none outline-none max-h-20"
+              rows={1}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={isLoading || (!inputText.trim() && !filePath.trim())}
+            className="p-2 bg-green-600 rounded-full text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            <Send size={20} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
