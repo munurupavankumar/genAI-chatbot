@@ -11,6 +11,8 @@ function App() {
   const [showFileSelector, setShowFileSelector] = useState(false);
   const [filePath, setFilePath] = useState('');
   const [fileType, setFileType] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [fileSource, setFileSource] = useState('upload'); // 'upload' or 'url'
   
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -25,13 +27,19 @@ function App() {
     setError('');
     
     // Validate input
-    if (!inputText.trim() && !filePath.trim()) {
+    if (!inputText.trim() && !selectedFile && !filePath.trim()) {
       setError('Please enter text or select a file');
       return;
     }
     
     // Add user message to chat
-    const userMessage = filePath ? `Summarize this file: ${filePath}` : inputText;
+    let userMessage = inputText;
+    if (selectedFile) {
+      userMessage = `Summarize this file: ${selectedFile.name}`;
+    } else if (filePath) {
+      userMessage = `Summarize this URL: ${filePath}`;
+    }
+    
     const newUserMessage = {
       id: Date.now(),
       text: userMessage,
@@ -41,28 +49,40 @@ function App() {
     
     setMessages(prev => [...prev, newUserMessage]);
     setInputText('');
-    setFilePath('');
     setShowFileSelector(false);
     setIsLoading(true);
 
-    // Construct request payload
-    const requestData = {};
-    
-    if (filePath) {
-      requestData.url = filePath;
-      if (fileType) {
-        requestData.file_type = fileType;
-      }
-    } else {
-      requestData.text = inputText;
-    }
-
     try {
-      const response = await axios.post('http://localhost:8000/summarize', requestData, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      let response;
+      
+      if (selectedFile) {
+        // Handle file upload
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        response = await axios.post('http://localhost:8000/upload', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          }
+        });
+        
+        // Now summarize the uploaded file
+        response = await axios.post('http://localhost:8000/summarize', {
+          file_path: response.data.file_path,
+          file_type: fileType || detectFileType(selectedFile.name)
+        });
+      } else if (filePath) {
+        // Handle URL
+        response = await axios.post('http://localhost:8000/summarize', {
+          url: filePath,
+          file_type: fileType
+        });
+      } else {
+        // Handle plain text
+        response = await axios.post('http://localhost:8000/summarize', {
+          text: inputText
+        });
+      }
       
       // Add bot response to chat
       const newBotMessage = {
@@ -98,29 +118,34 @@ function App() {
       setMessages(prev => [...prev, errorBotMessage]);
     } finally {
       setIsLoading(false);
+      setSelectedFile(null);
+      setFilePath('');
+      setFileType('');
     }
   };
 
-  const handleFilePathChange = (e) => {
-    setFilePath(e.target.value);
-    
-    // Auto-detect file type from extension
-    const extension = e.target.value.split('.').pop().toLowerCase();
+  const detectFileType = (filename) => {
+    const extension = filename.split('.').pop().toLowerCase();
     switch (extension) {
       case 'pdf':
-        setFileType('pdf');
-        break;
+        return 'pdf';
       case 'jpg':
       case 'jpeg':
       case 'png':
       case 'gif':
-        setFileType('image');
-        break;
+        return 'image';
       case 'txt':
-        setFileType('text');
-        break;
+        return 'text';
       default:
-        setFileType('');
+        return '';
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setFileType(detectFileType(file.name));
     }
   };
 
@@ -220,18 +245,75 @@ function App() {
               </button>
             </div>
             
+            {/* File source toggle */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                File Path:
-              </label>
-              <input
-                type="text"
-                value={filePath}
-                onChange={handleFilePathChange}
-                placeholder="C:\Users\username\Documents\file.pdf"
-                className="w-full p-2 border border-gray-300 rounded-md"
-              />
+              <div className="flex border rounded-md overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setFileSource('upload')}
+                  className={`flex-1 p-2 text-center ${
+                    fileSource === 'upload' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                  }`}
+                >
+                  Upload File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFileSource('url')}
+                  className={`flex-1 p-2 text-center ${
+                    fileSource === 'url' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                  }`}
+                >
+                  Enter URL
+                </button>
+              </div>
             </div>
+            
+            {fileSource === 'upload' ? (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload File:
+                </label>
+                <div className="flex items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Paperclip size={24} className="text-gray-500 mb-2" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        PDF, Image, Text files
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                      ref={fileInputRef}
+                    />
+                  </label>
+                </div>
+                {selectedFile && (
+                  <div className="mt-2 flex items-center p-2 border rounded-md bg-blue-50">
+                    {getFileIcon(fileType)}
+                    <span className="ml-2 text-sm truncate">{selectedFile.name}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  URL:
+                </label>
+                <input
+                  type="text"
+                  value={filePath}
+                  onChange={(e) => setFilePath(e.target.value)}
+                  placeholder="https://en.wikipedia.org/wiki/Article_370_of_the_Constitution_of_India"
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+            )}
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -257,8 +339,12 @@ function App() {
             <div className="flex justify-end">
               <button
                 onClick={() => {
-                  if (!filePath.trim()) {
-                    setError('Please enter a file path');
+                  if (fileSource === 'upload' && !selectedFile) {
+                    setError('Please select a file');
+                    return;
+                  }
+                  if (fileSource === 'url' && !filePath.trim()) {
+                    setError('Please enter a URL');
                     return;
                   }
                   handleSubmit();
@@ -298,7 +384,7 @@ function App() {
           
           <button
             type="submit"
-            disabled={isLoading || (!inputText.trim() && !filePath.trim())}
+            disabled={isLoading || (!inputText.trim() && !selectedFile && !filePath.trim())}
             className="p-2 bg-green-600 rounded-full text-white hover:bg-green-700 disabled:opacity-50"
           >
             <Send size={20} />
