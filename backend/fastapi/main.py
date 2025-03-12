@@ -1,4 +1,10 @@
 # File: backend/fastapi/main.py
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the .env file in the backend directory
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,6 +20,7 @@ logger = logging.getLogger(__name__)
 from services.ocr import extract_text_from_image
 from services.pdf_extraction import extract_text_from_pdf
 from services.article_scraper import extract_text_from_url
+from services.summarizer import azure_chatgpt_summarization  # New summarization service
 
 app = FastAPI(title="Summarization API")
 
@@ -31,16 +38,6 @@ class SummarizationRequest(BaseModel):
     file_type: str = None  # Optional file type: "pdf", "image", etc.
     text: str = None       # Direct text input
 
-def simulate_summarization(text: str) -> str:
-    """
-    Simulate a summarization process.
-    In a real implementation, you would integrate with a model (e.g., Azure-hosted ChatGPT).
-    """
-    if not text:
-        return "No text available for summarization."
-    # Return the first 200 characters as a 'summary'
-    return f"Summary: {text[:200]}..."
-
 @app.post("/summarize")
 async def summarize(request: Request):
     # Log the raw request body for debugging
@@ -52,10 +49,8 @@ async def summarize(request: Request):
         request_data = json.loads(body)
         logger.info(f"Parsed request data: {request_data}")
         
-        # Now validate using Pydantic model
+        # Validate using Pydantic model
         summarization_request = SummarizationRequest(**request_data)
-        
-        # Log validated request
         logger.info(f"Validated request: {summarization_request}")
         
         extracted_text = ""
@@ -70,17 +65,13 @@ async def summarize(request: Request):
             if summarization_request.file_type:
                 logger.info(f"File type specified: {summarization_request.file_type}")
                 if summarization_request.file_type.lower() == "pdf":
-                    # Note: In real scenarios, you'll likely need to download the PDF locally.
                     extracted_text = extract_text_from_pdf(summarization_request.url)
                 elif summarization_request.file_type.lower() in ["image", "jpg", "png"]:
-                    # Similarly, ensure the image is accessible locally or downloaded.
                     extracted_text = extract_text_from_image(summarization_request.url)
                 else:
-                    # Unknown file type; attempt article extraction as a fallback.
                     logger.info(f"Using article extraction for file type: {summarization_request.file_type}")
                     extracted_text = extract_text_from_url(summarization_request.url)
             else:
-                # If no file type is provided, assume it's an article URL.
                 logger.info("No file type provided, using article extraction")
                 extracted_text = extract_text_from_url(summarization_request.url)
         else:
@@ -88,9 +79,9 @@ async def summarize(request: Request):
             logger.error(error_msg)
             raise HTTPException(status_code=400, detail=error_msg)
         
-        # Simulate summarization (replace with actual model integration later)
+        # Use the Azure ChatGPT summarization service
         logger.info(f"Extracted text length: {len(extracted_text)}")
-        summary = simulate_summarization(extracted_text)
+        summary = azure_chatgpt_summarization(extracted_text)
         logger.info(f"Generated summary: {summary[:50]}...")
         return {"summary": summary}
     
