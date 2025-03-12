@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Pip logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node.js / Vite
+node_modules/
+.vite/
+dist/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml
+
+# Rasa artifacts
+backend/rasa/models/         
+backend/rasa/rasa.db         
+backend/rasa/__pycache__/
+backend/rasa/.ipynb_checkpoints/
+backend/rasa/.vscode/
+backend/rasa/.pytest_cache/
+backend/rasa/.rasa/cache/ 
