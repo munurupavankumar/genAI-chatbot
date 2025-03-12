@@ -3,6 +3,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Paperclip, Send, Loader, File, FileText, Image, Globe, X } from 'lucide-react';
 
+// API URL configuration
+const API_BASE_URL = 'http://localhost:8000';
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -56,30 +59,27 @@ function App() {
       let response;
       
       if (selectedFile) {
-        // Handle file upload
+        // Option 1: Use the upload_and_summarize endpoint to do everything in one request
         const formData = new FormData();
         formData.append('file', selectedFile);
+        if (fileType) {
+          formData.append('file_type', fileType);
+        }
         
-        response = await axios.post('http://localhost:8000/upload', formData, {
+        response = await axios.post(`${API_BASE_URL}/upload_and_summarize`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           }
         });
-        
-        // Now summarize the uploaded file
-        response = await axios.post('http://localhost:8000/summarize', {
-          file_path: response.data.file_path,
-          file_type: fileType || detectFileType(selectedFile.name)
-        });
       } else if (filePath) {
         // Handle URL
-        response = await axios.post('http://localhost:8000/summarize', {
+        response = await axios.post(`${API_BASE_URL}/summarize`, {
           url: filePath,
           file_type: fileType
         });
       } else {
         // Handle plain text
-        response = await axios.post('http://localhost:8000/summarize', {
+        response = await axios.post(`${API_BASE_URL}/summarize`, {
           text: inputText
         });
       }
@@ -309,7 +309,7 @@ function App() {
                   type="text"
                   value={filePath}
                   onChange={(e) => setFilePath(e.target.value)}
-                  placeholder="https://en.wikipedia.org/wiki/Article_370_of_the_Constitution_of_India"
+                  placeholder="https://example.com/article"
                   className="w-full p-2 border border-gray-300 rounded-md"
                 />
               </div>

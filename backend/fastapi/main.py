@@ -7,11 +7,11 @@ from pathlib import Path
 # Load environment variables from the .env file in the backend directory
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Optional
 import uvicorn
-import json
 import logging
 
 # Set up logging
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 from services.ocr import extract_text_from_image
 from services.pdf_extraction import extract_text_from_pdf
 from services.article_scraper import extract_text_from_url
-from services.summarizer import azure_chatgpt_summarization  # New summarization service
+from services.summarizer import azure_chatgpt_summarization  # Summarization service
 
 app = FastAPI(title="Summarization API")
 
@@ -41,26 +41,31 @@ os.makedirs(ASSETS_DIR, exist_ok=True)
 logger.info(f"Assets directory: {ASSETS_DIR}")
 
 class SummarizationRequest(BaseModel):
-    url: str = None        # URL to the content (if applicable)
-    file_type: str = None  # Optional file type: "pdf", "image", etc.
-    text: str = None       # Direct text input
-    file_path: str = None  # Path to uploaded file (if applicable)
+    url: Optional[str] = None        # URL to the content (if applicable)
+    file_type: Optional[str] = None  # Optional file type: "pdf", "image", etc.
+    text: Optional[str] = None       # Direct text input
+    file_path: Optional[str] = None  # Path to uploaded file (if applicable)
+
+def detect_file_type(filename):
+    """Detect file type based on extension"""
+    extension = os.path.splitext(filename)[1].lower().strip('.')
+    if extension in ['pdf']:
+        return 'pdf'
+    elif extension in ['jpg', 'jpeg', 'png', 'gif']:
+        return 'image'
+    elif extension in ['txt', 'md', 'markdown']:
+        return 'text'
+    return ''
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     try:
         logger.info(f"Received file upload: {file.filename}")
-        
-        # Create a safe filename to prevent path traversal attacks
         safe_filename = Path(file.filename).name
         file_path = os.path.join(ASSETS_DIR, safe_filename)
-        
-        # Save the file
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        
         logger.info(f"Saved file to: {file_path}")
-        
         return {
             "file_path": file_path,
             "filename": safe_filename,
@@ -70,90 +75,94 @@ async def upload_file(file: UploadFile = File(...)):
         logger.error(f"Error uploading file: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
-@app.post("/summarize")
-async def summarize(request: Request):
-    # Log the raw request body for debugging
-    body = await request.body()
-    logger.info(f"Raw request body: {body}")
-    
+@app.post("/upload_and_summarize")
+async def upload_and_summarize(file: UploadFile = File(...), file_type: Optional[str] = None):
     try:
-        # Parse the request body manually for debugging
-        request_data = json.loads(body)
-        logger.info(f"Parsed request data: {request_data}")
+        logger.info(f"Received file upload for immediate summarization: {file.filename}")
+        # Save the file
+        safe_filename = Path(file.filename).name
+        file_path = os.path.join(ASSETS_DIR, safe_filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        logger.info(f"Saved file to: {file_path}")
+
+        # Determine file type if not provided
+        if not file_type:
+            file_type = detect_file_type(safe_filename)
+
+        # Extract text based on file type
+        extracted_text = await extract_text_from_file(file_path, file_type)
         
-        # Validate using Pydantic model
-        summarization_request = SummarizationRequest(**request_data)
-        logger.info(f"Validated request: {summarization_request}")
+        # Generate summary
+        summary = azure_chatgpt_summarization(extracted_text)
+        logger.info(f"Generated summary: {summary[:50]}...")
         
+        return {
+            "summary": summary, 
+            "file_path": file_path, 
+            "filename": safe_filename, 
+            "content_type": file.content_type
+        }
+    except Exception as e:
+        logger.error(f"Error in upload_and_summarize: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Upload and summarization failed: {str(e)}")
+
+async def extract_text_from_file(file_path, file_type=None):
+    """Extract text from a file based on its type"""
+    try:
+        # Determine file type if not provided
+        if not file_type:
+            file_type = detect_file_type(file_path)
+        
+        logger.info(f"Extracting text from file: {file_path} (type: {file_type})")
+        
+        # Extract text based on file type
+        if file_type.lower() == "pdf":
+            return extract_text_from_pdf(file_path)
+        elif file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
+            return extract_text_from_image(file_path)
+        else:  # Default to text file
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except UnicodeDecodeError:
+                # Try again with a different encoding if UTF-8 fails
+                with open(file_path, 'r', encoding='latin-1') as f:
+                    return f.read()
+    except Exception as e:
+        logger.error(f"Error extracting text from file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error extracting text from file: {str(e)}")
+
+@app.post("/summarize")
+async def summarize(request: SummarizationRequest):
+    try:
+        logger.info(f"Summarization request: {request}")
         extracted_text = ""
         
-        # Priority: if direct text is provided, use it.
-        if summarization_request.text:
-            extracted_text = summarization_request.text
-            logger.info(f"Using direct text input: {summarization_request.text[:50]}...")
-        # Next priority: check for a file path (from uploaded file)
-        elif summarization_request.file_path:
-            logger.info(f"Processing uploaded file: {summarization_request.file_path}")
-            
-            if summarization_request.file_type:
-                logger.info(f"File type specified: {summarization_request.file_type}")
-                if summarization_request.file_type.lower() == "pdf":
-                    extracted_text = extract_text_from_pdf(summarization_request.file_path)
-                elif summarization_request.file_type.lower() in ["image", "jpg", "png"]:
-                    extracted_text = extract_text_from_image(summarization_request.file_path)
-                else:
-                    # For text files or other recognized formats
-                    try:
-                        with open(summarization_request.file_path, 'r', encoding='utf-8') as file:
-                            extracted_text = file.read()
-                    except Exception as e:
-                        logger.error(f"Error reading file: {str(e)}")
-                        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+        # Extract text based on input type
+        if request.text:
+            extracted_text = request.text
+            logger.info(f"Using direct text input: {request.text[:50]}...")
+        elif request.file_path:
+            extracted_text = await extract_text_from_file(request.file_path, request.file_type)
+        elif request.url:
+            logger.info(f"Processing URL: {request.url}")
+            if request.file_type and request.file_type.lower() == "pdf":
+                extracted_text = extract_text_from_pdf(request.url)
+            elif request.file_type and request.file_type.lower() in ["image", "jpg", "png"]:
+                extracted_text = extract_text_from_image(request.url)
             else:
-                # Try to guess file type from extension
-                file_ext = os.path.splitext(summarization_request.file_path)[1].lower()
-                if file_ext in ['.pdf']:
-                    extracted_text = extract_text_from_pdf(summarization_request.file_path)
-                elif file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                    extracted_text = extract_text_from_image(summarization_request.file_path)
-                else:
-                    # Default to trying to read as text
-                    try:
-                        with open(summarization_request.file_path, 'r', encoding='utf-8') as file:
-                            extracted_text = file.read()
-                    except Exception as e:
-                        logger.error(f"Error reading file: {str(e)}")
-                        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
-        # Last priority: check for URL
-        elif summarization_request.url:
-            logger.info(f"Processing URL: {summarization_request.url}")
-            # Process based on file_type if provided.
-            if summarization_request.file_type:
-                logger.info(f"File type specified: {summarization_request.file_type}")
-                if summarization_request.file_type.lower() == "pdf":
-                    extracted_text = extract_text_from_pdf(summarization_request.url)
-                elif summarization_request.file_type.lower() in ["image", "jpg", "png"]:
-                    extracted_text = extract_text_from_image(summarization_request.url)
-                else:
-                    logger.info(f"Using article extraction for file type: {summarization_request.file_type}")
-                    extracted_text = extract_text_from_url(summarization_request.url)
-            else:
-                logger.info("No file type provided, using article extraction")
-                extracted_text = extract_text_from_url(summarization_request.url)
+                extracted_text = extract_text_from_url(request.url)
         else:
             error_msg = "Please provide either direct text, a file path, or a URL."
             logger.error(error_msg)
             raise HTTPException(status_code=400, detail=error_msg)
         
-        # Use the Azure ChatGPT summarization service
         logger.info(f"Extracted text length: {len(extracted_text)}")
         summary = azure_chatgpt_summarization(extracted_text)
         logger.info(f"Generated summary: {summary[:50]}...")
         return {"summary": summary}
     
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
