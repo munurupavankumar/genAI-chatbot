@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Header from './components/Header';
 import MessageList from './components/MessageList';
@@ -17,9 +17,73 @@ function App() {
   const [fileType, setFileType] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileSource, setFileSource] = useState('upload'); // 'upload' or 'url'
+  const [pendingSubmission, setPendingSubmission] = useState(false);
+
+  // Effect to handle file submissions, triggered when selectedFile changes
+  useEffect(() => {
+    if (selectedFile && pendingSubmission) {
+      handleSubmit();
+      setPendingSubmission(false);
+    }
+  }, [selectedFile, pendingSubmission]);
+
+  // Format the summary text with markdown-like formatting
+  const formatSummary = (text) => {
+    // Add a header
+    let formattedText = `**Summary:**\n\n`;
+    
+    // Split the text into paragraphs
+    const paragraphs = text.split(/\n\n+/);
+    
+    // Process each paragraph
+    paragraphs.forEach((paragraph, index) => {
+      // Check if this looks like a list of items
+      if (paragraph.includes('. ') && !paragraph.includes('\n')) {
+        // Convert to bullet points if it's a short paragraph with sentences
+        const sentences = paragraph.split(/(?<=\. )/);
+        if (sentences.length > 1 && sentences.every(s => s.length < 100)) {
+          sentences.forEach(sentence => {
+            if (sentence.trim()) {
+              formattedText += `- ${sentence.trim()}\n`;
+            }
+          });
+          formattedText += '\n';
+        } else {
+          formattedText += `${paragraph}\n\n`;
+        }
+      } 
+      // Check if this looks like it could be a key point
+      else if (paragraph.length < 100 && !paragraph.endsWith('.')) {
+        formattedText += `**${paragraph}**\n\n`;
+      }
+      // Regular paragraph
+      else {
+        formattedText += `${paragraph}\n\n`;
+      }
+    });
+    
+    return formattedText.trim();
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setFileType(detectFileType(file.name) || 'image'); // Default to 'image' for camera captures
+      
+      // If the file is from the camera, mark it for submission
+      if (e.target.hasAttribute && e.target.hasAttribute('capture')) {
+        setPendingSubmission(true);
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isLoading) return;
+    
     setError('');
     
     // Validate input
@@ -77,10 +141,10 @@ function App() {
         });
       }
       
-      // Add bot response to chat
+      // Add bot response to chat with formatted summary
       const newBotMessage = {
         id: Date.now() + 1,
-        text: response.data.summary,
+        text: formatSummary(response.data.summary),
         sender: 'bot',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
@@ -114,19 +178,6 @@ function App() {
       setSelectedFile(null);
       setFilePath('');
       setFileType('');
-    }
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setFileType(detectFileType(file.name) || 'image'); // Default to 'image' for camera captures
-      
-      // If the file is from the camera, automatically submit it
-      if (e.target.hasAttribute('capture')) {
-        setTimeout(() => handleSubmit(), 100);
-      }
     }
   };
 
@@ -172,6 +223,7 @@ function App() {
         filePath={filePath}
         error={error}
         handleFileChange={handleFileChange}
+        setError={setError}
       />
     </div>
   );

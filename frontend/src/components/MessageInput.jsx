@@ -55,7 +55,7 @@ const MessageInput = ({
         // Create a File object from the blob
         const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
         
-        // Create a synthetic event object
+        // Create a synthetic event object that exactly matches what handleFileChange expects
         const syntheticEvent = { 
           target: { 
             files: [file],
@@ -63,11 +63,14 @@ const MessageInput = ({
           } 
         };
         
-        // Close camera
+        // Close camera first to avoid state issues
         closeCamera();
         
-        // Call the handleFileChange with our synthetic event
+        // Process the file
         handleFileChange(syntheticEvent);
+        
+        // IMPORTANT: Let App.jsx handle the submission
+        // Removing the setTimeout and handleSubmit call here prevents double submissions
       }, 'image/jpeg', 0.95);
     }
   };

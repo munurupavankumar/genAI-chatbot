@@ -18,11 +18,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import our service functions
-from services.ocr import extract_text_from_image
+# Import our service functions - removed OCR import
 from services.pdf_extraction import extract_text_from_pdf
 from services.article_scraper import extract_text_from_url
-from services.summarizer import azure_chatgpt_summarization  # Summarization service
+from services.summarizer import azure_chatgpt_summarization, extract_and_summarize_image
 
 app = FastAPI(title="Summarization API")
 
@@ -90,12 +89,17 @@ async def upload_and_summarize(file: UploadFile = File(...), file_type: Optional
         if not file_type:
             file_type = detect_file_type(safe_filename)
 
-        # Extract text based on file type
-        extracted_text = await extract_text_from_file(file_path, file_type)
-        
-        # Generate summary
-        summary = azure_chatgpt_summarization(extracted_text)
-        logger.info(f"Generated summary: {summary[:50]}...")
+        # Process based on file type
+        if file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
+            # For images, use the combined extract and summarize function
+            summary = extract_and_summarize_image(file_path)
+            logger.info(f"Generated summary from image: {summary[:50]}...")
+        else:
+            # Extract text from other file types
+            extracted_text = await extract_text_from_file(file_path, file_type)
+            # Generate summary
+            summary = azure_chatgpt_summarization(extracted_text)
+            logger.info(f"Generated summary: {summary[:50]}...")
         
         return {
             "summary": summary, 
@@ -120,7 +124,10 @@ async def extract_text_from_file(file_path, file_type=None):
         if file_type.lower() == "pdf":
             return extract_text_from_pdf(file_path)
         elif file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
-            return extract_text_from_image(file_path)
+            # We use the combined function for images
+            logger.info("Using combined extract_and_summarize_image function")
+            summary = extract_and_summarize_image(file_path)
+            return summary
         else:  # Default to text file
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -144,13 +151,20 @@ async def summarize(request: SummarizationRequest):
             extracted_text = request.text
             logger.info(f"Using direct text input: {request.text[:50]}...")
         elif request.file_path:
-            extracted_text = await extract_text_from_file(request.file_path, request.file_type)
+            # Check if it's an image file
+            if request.file_type and request.file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
+                # Use the combined extract and summarize function for images
+                summary = extract_and_summarize_image(request.file_path)
+                return {"summary": summary}
+            else:
+                extracted_text = await extract_text_from_file(request.file_path, request.file_type)
         elif request.url:
             logger.info(f"Processing URL: {request.url}")
             if request.file_type and request.file_type.lower() == "pdf":
                 extracted_text = extract_text_from_pdf(request.url)
             elif request.file_type and request.file_type.lower() in ["image", "jpg", "png"]:
-                extracted_text = extract_text_from_image(request.url)
+                # We would need to download the image first to use our combined function
+                return {"error": "Direct image URL summarization not supported yet"}
             else:
                 extracted_text = extract_text_from_url(request.url)
         else:
@@ -159,9 +173,14 @@ async def summarize(request: SummarizationRequest):
             raise HTTPException(status_code=400, detail=error_msg)
         
         logger.info(f"Extracted text length: {len(extracted_text)}")
-        summary = azure_chatgpt_summarization(extracted_text)
-        logger.info(f"Generated summary: {summary[:50]}...")
-        return {"summary": summary}
+        
+        # Only summarize if we haven't already (for images)
+        if not extracted_text.startswith("Error"):
+            summary = azure_chatgpt_summarization(extracted_text)
+            logger.info(f"Generated summary: {summary[:50]}...")
+            return {"summary": summary}
+        else:
+            return {"error": extracted_text}
     
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
