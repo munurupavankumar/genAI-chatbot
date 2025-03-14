@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Paperclip, Send, Loader, File, FileText, Image, Globe, X } from 'lucide-react';
 
 // API URL configuration
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '/api';
 
 function App() {
   const [messages, setMessages] = useState([]);
