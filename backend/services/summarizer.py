@@ -20,11 +20,12 @@ def get_image_data_url(image_path, image_format):
     except Exception as e:
         return f"Error: Could not read image file: {e}"
 
-def extract_and_summarize_image(image_path: str) -> str:
+def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
     """
     Extract text from an image and summarize it in a single API call.
     
     :param image_path: Path to the image file.
+    :param language: Language code for the summary (default: "en").
     :return: Summarized text or an error message.
     """
     # Get the token from environment variables
@@ -50,23 +51,27 @@ def extract_and_summarize_image(image_path: str) -> str:
         api_key=token,
     )
     
+    # Create language-specific system prompt
+    system_prompt = (
+        "You are a helpful assistant that extracts text from images and provides clear, well-formatted summaries. "
+        "For longer texts, structure the summary with bullet points. "
+        "For shorter texts, provide a concise paragraph. "
+        "Use clean formatting without asterisks or markdown symbols. "
+        "Ensure the summary is readable and captures the key points. "
+        f"Respond in {language} language."
+    )
+    
     # Send the image to the model with a prompt to extract and summarize text in one call
     response = client.chat.completions.create(
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a helpful assistant that extracts text from images and provides clear, well-formatted summaries. "
-                    "For longer texts, structure the summary with bullet points. "
-                    "For shorter texts, provide a concise paragraph. "
-                    "Use clean formatting without asterisks or markdown symbols. "
-                    "Ensure the summary is readable and captures the key points."
-                )
+                "content": system_prompt
             },
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Extract all text from this image and provide a clear, well-formatted summary:"},
+                    {"type": "text", "text": f"Extract all text from this image and provide a clear, well-formatted summary in {language} language:"},
                     {"type": "image_url", "image_url": {"url": image_data_url}}
                 ]
             }
@@ -81,10 +86,14 @@ def extract_and_summarize_image(image_path: str) -> str:
     summary = response.choices[0].message.content
     return summary
 
-def azure_chatgpt_summarization(text: str) -> str:
+def azure_chatgpt_summarization(text: str, language: str = "en") -> str:
     """
     Uses the GitHub-Azure ChatGPT model to summarize the input text.
     Requires the environment variable GITHUB_TOKEN to be set.
+    
+    :param text: The text to summarize.
+    :param language: Language code for the summary (default: "en").
+    :return: Summarized text.
     """
     # Get the token from environment variables
     token = os.environ.get("GITHUB_TOKEN")
@@ -101,22 +110,26 @@ def azure_chatgpt_summarization(text: str) -> str:
         api_key=token,
     )
     
+    # Create language-specific system prompt
+    system_prompt = (
+        "You are a helpful assistant that summarizes texts succinctly and clearly. "
+        "For longer texts, provide a well-structured summary with bullet points. "
+        "For shorter texts, provide a concise paragraph. "
+        "Use clean formatting without asterisks or markdown symbols. "
+        "Ensure the summary is readable and captures the key points. "
+        f"Respond in {language} language."
+    )
+    
     # Build the messages for a summarization prompt with improved formatting instructions
     response = client.chat.completions.create(
         messages=[
             {
                 "role": "system",
-                "content": (
-                    "You are a helpful assistant that summarizes texts succinctly and clearly. "
-                    "For longer texts, provide a well-structured summary with bullet points. "
-                    "For shorter texts, provide a concise paragraph. "
-                    "Use clean formatting without asterisks or markdown symbols. "
-                    "Ensure the summary is readable and captures the key points."
-                )
+                "content": system_prompt
             },
             {
                 "role": "user",
-                "content": f"Please summarize the following text:\n\n{text}",
+                "content": f"Please summarize the following text in {language} language:\n\n{text}",
             }
         ],
         temperature=0.7,

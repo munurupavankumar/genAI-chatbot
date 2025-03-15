@@ -4,6 +4,7 @@ import Header from './components/Header';
 import MessageList from './components/MessageList';
 import FileSelector from './components/FileSelector';
 import MessageInput from './components/MessageInput';
+import LanguageSelector from './components/LanguageSelector';
 import { detectFileType } from './utils/fileUtils';
 import { API_BASE_URL } from './config/api';
 
@@ -18,6 +19,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileSource, setFileSource] = useState('upload'); // 'upload' or 'url'
   const [pendingSubmission, setPendingSubmission] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('en'); // Default to English
 
   // Effect to handle file submissions, triggered when selectedFile changes
   useEffect(() => {
@@ -122,6 +124,8 @@ function App() {
         if (fileType) {
           formData.append('file_type', fileType);
         }
+        // Add language parameter
+        formData.append('language', selectedLanguage);
         
         response = await axios.post(`${API_BASE_URL}/upload_and_summarize`, formData, {
           headers: {
@@ -132,12 +136,14 @@ function App() {
         // Handle URL
         response = await axios.post(`${API_BASE_URL}/summarize`, {
           url: filePath,
-          file_type: fileType
+          file_type: fileType,
+          language: selectedLanguage
         });
       } else {
         // Handle plain text
         response = await axios.post(`${API_BASE_URL}/summarize`, {
-          text: inputText
+          text: inputText,
+          language: selectedLanguage
         });
       }
       
@@ -191,6 +197,13 @@ function App() {
   return (
     <div className="flex flex-col h-screen bg-gray-100">
       <Header />
+      
+      <div className="flex justify-end bg-white border-b border-gray-200 shadow-sm">
+        <LanguageSelector 
+          selectedLanguage={selectedLanguage} 
+          setSelectedLanguage={setSelectedLanguage} 
+        />
+      </div>
       
       <MessageList 
         messages={messages} 
