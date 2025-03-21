@@ -20,6 +20,33 @@ def get_image_data_url(image_path, image_format):
     except Exception as e:
         return f"Error: Could not read image file: {e}"
 
+# Map language codes to full language names for better API understanding
+def get_language_name(language_code):
+    language_map = {
+        'en': 'English',
+        'es': 'Spanish',
+        'fr': 'French',
+        'de': 'German',
+        'it': 'Italian',
+        'zh': 'Chinese',
+        'ja': 'Japanese',
+        'ko': 'Korean',
+        'ru': 'Russian',
+        'ar': 'Arabic',
+        # Indian languages with full names
+        'hi': 'Hindi',
+        'te': 'Telugu',
+        'ta': 'Tamil',
+        'bn': 'Bengali',
+        'mr': 'Marathi',
+        'gu': 'Gujarati',
+        'kn': 'Kannada',
+        'ml': 'Malayalam',
+        'pa': 'Punjabi',
+        'ur': 'Urdu'
+    }
+    return language_map.get(language_code, 'English')
+
 def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
     """
     Extract text from an image and summarize it in a single API call.
@@ -51,14 +78,17 @@ def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
         api_key=token,
     )
     
-    # Create language-specific system prompt
+    # Get full language name for clearer instruction to the model
+    language_name = get_language_name(language)
+    
+    # Create language-specific system prompt with explicit language name
     system_prompt = (
         "You are a helpful assistant that extracts text from images and provides clear, well-formatted summaries. "
         "For longer texts, structure the summary with bullet points. "
         "For shorter texts, provide a concise paragraph. "
         "Use clean formatting without asterisks or markdown symbols. "
         "Ensure the summary is readable and captures the key points. "
-        f"Respond in {language} language."
+        f"You must respond in {language_name} language only."
     )
     
     # Send the image to the model with a prompt to extract and summarize text in one call
@@ -71,7 +101,7 @@ def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"Extract all text from this image and provide a clear, well-formatted summary in {language} language:"},
+                    {"type": "text", "text": f"Extract all text from this image and provide a clear, well-formatted summary in {language_name} language only. Do not use any other language."},
                     {"type": "image_url", "image_url": {"url": image_data_url}}
                 ]
             }
@@ -110,14 +140,17 @@ def azure_chatgpt_summarization(text: str, language: str = "en") -> str:
         api_key=token,
     )
     
-    # Create language-specific system prompt
+    # Get full language name for clearer instruction to the model
+    language_name = get_language_name(language)
+    
+    # Create language-specific system prompt with explicit language name
     system_prompt = (
         "You are a helpful assistant that summarizes texts succinctly and clearly. "
         "For longer texts, provide a well-structured summary with bullet points. "
         "For shorter texts, provide a concise paragraph. "
         "Use clean formatting without asterisks or markdown symbols. "
         "Ensure the summary is readable and captures the key points. "
-        f"Respond in {language} language."
+        f"You must respond in {language_name} language only."
     )
     
     # Build the messages for a summarization prompt with improved formatting instructions
@@ -129,7 +162,7 @@ def azure_chatgpt_summarization(text: str, language: str = "en") -> str:
             },
             {
                 "role": "user",
-                "content": f"Please summarize the following text in {language} language:\n\n{text}",
+                "content": f"Please summarize the following text in {language_name} language only. Do not use any other language:\n\n{text}",
             }
         ],
         temperature=0.7,
