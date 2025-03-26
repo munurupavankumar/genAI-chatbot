@@ -4,6 +4,7 @@ import Header from './components/Header';
 import MessageList from './components/MessageList';
 import FileSelector from './components/FileSelector';
 import MessageInput from './components/MessageInput';
+import AudioPlayer from './components/AudioPlayer';
 import LanguageSelector from './components/LanguageSelector';
 import { detectFileType } from './utils/fileUtils';
 import { API_BASE_URL } from './config/api';
@@ -19,7 +20,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileSource, setFileSource] = useState('upload'); // 'upload' or 'url'
   const [pendingSubmission, setPendingSubmission] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('en'); // Default to English
+  const [selectedLanguage, setSelectedLanguage] = useState('te'); // Default to English
 
   // Effect to handle file submissions, triggered when selectedFile changes
   useEffect(() => {
@@ -152,7 +153,8 @@ function App() {
         id: Date.now() + 1,
         text: formatSummary(response.data.summary),
         sender: 'bot',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        audio: response.data.audio
       };
       
       setMessages(prev => [...prev, newBotMessage]);
@@ -207,7 +209,7 @@ function App() {
       
       <MessageList 
         messages={messages} 
-        isLoading={isLoading} 
+        isLoading={isLoading}
       />
       
       <FileSelector 

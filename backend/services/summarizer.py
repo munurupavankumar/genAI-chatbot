@@ -4,6 +4,9 @@ import base64
 from pathlib import Path
 from openai import OpenAI
 
+# Import the text-to-speech function
+from .tts_service import text_to_speech_telugu
+
 def get_image_data_url(image_path, image_format):
     """
     Convert an image file to a data URL.
@@ -24,16 +27,6 @@ def get_image_data_url(image_path, image_format):
 def get_language_name(language_code):
     language_map = {
         'en': 'English',
-        'es': 'Spanish',
-        'fr': 'French',
-        'de': 'German',
-        'it': 'Italian',
-        'zh': 'Chinese',
-        'ja': 'Japanese',
-        'ko': 'Korean',
-        'ru': 'Russian',
-        'ar': 'Arabic',
-        # Indian languages with full names
         'hi': 'Hindi',
         'te': 'Telugu',
         'ta': 'Tamil',
@@ -42,18 +35,17 @@ def get_language_name(language_code):
         'gu': 'Gujarati',
         'kn': 'Kannada',
         'ml': 'Malayalam',
-        'pa': 'Punjabi',
-        'ur': 'Urdu'
+        'pa': 'Punjabi'
     }
     return language_map.get(language_code, 'English')
 
-def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
+def extract_and_summarize_image(image_path: str, language: str = "te") -> dict:
     """
-    Extract text from an image and summarize it in a single API call.
+    Extract text from an image, summarize it, and generate TTS.
     
     :param image_path: Path to the image file.
-    :param language: Language code for the summary (default: "en").
-    :return: Summarized text or an error message.
+    :param language: Language code for the summary (default: "te").
+    :return: Dictionary with summary and audio
     """
     # Get the token from environment variables
     token = os.environ.get("GITHUB_TOKEN")
@@ -112,18 +104,29 @@ def extract_and_summarize_image(image_path: str, language: str = "en") -> str:
         model=model_name
     )
     
-    # Extract and return the text from the response
+    # Extract summary from the response
     summary = response.choices[0].message.content
-    return summary
+    
+    # Generate text-to-speech for the summary
+    try:
+        audio_base64 = text_to_speech_telugu(summary, language=language)
+    except Exception as e:
+        audio_base64 = ""
+        print(f"TTS generation failed: {e}")
+    
+    return {
+        "summary": summary,
+        "audio": audio_base64
+    }
 
-def azure_chatgpt_summarization(text: str, language: str = "en") -> str:
+def azure_chatgpt_summarization(text: str, language: str = "te") -> dict:
     """
     Uses the GitHub-Azure ChatGPT model to summarize the input text.
-    Requires the environment variable GITHUB_TOKEN to be set.
+    Generates TTS for the summary.
     
     :param text: The text to summarize.
-    :param language: Language code for the summary (default: "en").
-    :return: Summarized text.
+    :param language: Language code for the summary (default: "te").
+    :return: Dictionary with summary and audio
     """
     # Get the token from environment variables
     token = os.environ.get("GITHUB_TOKEN")
@@ -171,6 +174,17 @@ def azure_chatgpt_summarization(text: str, language: str = "en") -> str:
         model=model_name
     )
     
-    # Extract and return the summary from the response
+    # Extract summary from the response
     summary = response.choices[0].message.content
-    return summary
+    
+    # Generate text-to-speech for the summary
+    try:
+        audio_base64 = text_to_speech_telugu(summary, language=language)
+    except Exception as e:
+        audio_base64 = ""
+        print(f"TTS generation failed: {e}")
+    
+    return {
+        "summary": summary,
+        "audio": audio_base64
+    }

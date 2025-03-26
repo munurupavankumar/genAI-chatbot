@@ -3,16 +3,6 @@ import React from 'react';
 const LanguageSelector = ({ selectedLanguage, setSelectedLanguage }) => {
   const languages = [
     { code: 'en', name: 'English' },
-    { code: 'es', name: 'Spanish' },
-    { code: 'fr', name: 'French' },
-    { code: 'de', name: 'German' },
-    { code: 'it', name: 'Italian' },
-    { code: 'zh', name: 'Chinese' },
-    { code: 'ja', name: 'Japanese' },
-    { code: 'ko', name: 'Korean' },
-    { code: 'ru', name: 'Russian' },
-    { code: 'ar', name: 'Arabic' },
-    // Indian languages
     { code: 'hi', name: 'Hindi' },
     { code: 'te', name: 'Telugu' },
     { code: 'ta', name: 'Tamil' },
@@ -22,7 +12,6 @@ const LanguageSelector = ({ selectedLanguage, setSelectedLanguage }) => {
     { code: 'kn', name: 'Kannada' },
     { code: 'ml', name: 'Malayalam' },
     { code: 'pa', name: 'Punjabi' },
-    { code: 'ur', name: 'Urdu' }
   ];
 
   return (

@@ -7,3 +7,4 @@ pytesseract==0.3.8
 Pillow==11.1.0
 PyMuPDF==1.25.3
 beautifulsoup4==4.13.3
+pygame==2.6.1

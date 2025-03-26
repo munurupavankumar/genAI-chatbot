@@ -18,7 +18,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import our service functions - removed OCR import
+# Import our service functions
 from services.pdf_extraction import extract_text_from_pdf
 from services.article_scraper import extract_text_from_url
 from services.summarizer import azure_chatgpt_summarization, extract_and_summarize_image
@@ -44,7 +44,7 @@ class SummarizationRequest(BaseModel):
     file_type: Optional[str] = None  # Optional file type: "pdf", "image", etc.
     text: Optional[str] = None       # Direct text input
     file_path: Optional[str] = None  # Path to uploaded file (if applicable)
-    language: Optional[str] = "en"   # Language code, default to English
+    language: Optional[str] = "te"   # Language code, default to English
 
 def detect_file_type(filename):
     """Detect file type based on extension"""
@@ -57,29 +57,11 @@ def detect_file_type(filename):
         return 'text'
     return ''
 
-@app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    try:
-        logger.info(f"Received file upload: {file.filename}")
-        safe_filename = Path(file.filename).name
-        file_path = os.path.join(ASSETS_DIR, safe_filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        logger.info(f"Saved file to: {file_path}")
-        return {
-            "file_path": file_path,
-            "filename": safe_filename,
-            "content_type": file.content_type
-        }
-    except Exception as e:
-        logger.error(f"Error uploading file: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
-
 @app.post("/upload_and_summarize")
 async def upload_and_summarize(
     file: UploadFile = File(...), 
     file_type: Optional[str] = Form(None),
-    language: Optional[str] = Form("en")
+    language: Optional[str] = Form("te")
 ):
     try:
         logger.info(f"Received file upload for immediate summarization: {file.filename} (language: {language})")
@@ -97,17 +79,18 @@ async def upload_and_summarize(
         # Process based on file type
         if file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
             # For images, use the combined extract and summarize function
-            summary = extract_and_summarize_image(file_path, language)
-            logger.info(f"Generated summary from image: {summary[:50]}...")
+            result = extract_and_summarize_image(file_path, language)
+            logger.info(f"Generated summary from image: {result['summary'][:50]}...")
         else:
             # Extract text from other file types
             extracted_text = await extract_text_from_file(file_path, file_type)
             # Generate summary
-            summary = azure_chatgpt_summarization(extracted_text, language)
-            logger.info(f"Generated summary: {summary[:50]}...")
+            result = azure_chatgpt_summarization(extracted_text, language)
+            logger.info(f"Generated summary: {result['summary'][:50]}...")
         
         return {
-            "summary": summary, 
+            "summary": result['summary'], 
+            "audio": result['audio'],
             "file_path": file_path, 
             "filename": safe_filename, 
             "content_type": file.content_type
@@ -131,8 +114,8 @@ async def extract_text_from_file(file_path, file_type=None):
         elif file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
             # We use the combined function for images
             logger.info("Using combined extract_and_summarize_image function")
-            summary = extract_and_summarize_image(file_path)
-            return summary
+            result = extract_and_summarize_image(file_path)
+            return result['summary']
         else:  # Default to text file
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -159,8 +142,11 @@ async def summarize(request: SummarizationRequest):
             # Check if it's an image file
             if request.file_type and request.file_type.lower() in ["image", "jpg", "jpeg", "png", "gif"]:
                 # Use the combined extract and summarize function for images
-                summary = extract_and_summarize_image(request.file_path, request.language)
-                return {"summary": summary}
+                result = extract_and_summarize_image(request.file_path, request.language)
+                return {
+                    "summary": result['summary'],
+                    "audio": result['audio']
+                }
             else:
                 extracted_text = await extract_text_from_file(request.file_path, request.file_type)
         elif request.url:
@@ -181,9 +167,13 @@ async def summarize(request: SummarizationRequest):
         
         # Only summarize if we haven't already (for images)
         if not extracted_text.startswith("Error"):
-            summary = azure_chatgpt_summarization(extracted_text, request.language)
-            logger.info(f"Generated summary: {summary[:50]}...")
-            return {"summary": summary}
+            # Summarize and get TTS
+            result = azure_chatgpt_summarization(extracted_text, request.language)
+            logger.info(f"Generated summary: {result['summary'][:50]}...")
+            return {
+                "summary": result['summary'],
+                "audio": result['audio']
+            }
         else:
             return {"error": extracted_text}
     

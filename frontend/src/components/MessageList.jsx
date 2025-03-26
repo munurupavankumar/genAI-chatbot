@@ -1,12 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import Message from './Message';
-import { Loader } from 'lucide-react';
+import React, { useEffect, useRef } from "react";
+import AudioPlayer from "./AudioPlayer";
+import Message from "./Message";
+import { Loader } from "lucide-react";
 
 const MessageList = ({ messages, isLoading }) => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   return (
@@ -19,7 +20,22 @@ const MessageList = ({ messages, isLoading }) => {
         </div>
       ) : (
         messages.map((message) => (
-          <Message key={message.id} message={message} />
+          <div key={message.id}>
+            <Message 
+              message={{
+                ...message,
+                audioBase64: message.sender === "bot" && message.audio ? message.audio : null,
+                language: message.language || "te"
+              }}
+            />
+            {/* Render AudioPlayer directly if bot message has audio */}
+            {message.sender === "bot" && message.audio && (
+              <AudioPlayer
+                audioBase64={message.audio}
+                language={message.language || "te"}
+              />
+            )}
+          </div>
         ))
       )}
       {isLoading && (
