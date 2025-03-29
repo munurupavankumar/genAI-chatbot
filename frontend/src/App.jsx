@@ -5,6 +5,7 @@ import MessageList from './components/MessageList';
 import FileSelector from './components/FileSelector';
 import MessageInput from './components/MessageInput';
 import LanguageSelector from './components/LanguageSelector';
+import Welcome from './components/Welcome';
 import { detectFileType } from './utils/fileUtils';
 import { API_BASE_URL } from './config/api';
 
@@ -19,7 +20,7 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileSource, setFileSource] = useState('upload'); // 'upload' or 'url'
   const [pendingSubmission, setPendingSubmission] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('te'); // Default to English
+  const [selectedLanguage, setSelectedLanguage] = useState('te'); // Default to Telugu
 
   // Effect to handle file submissions, triggered when selectedFile changes
   useEffect(() => {
@@ -206,9 +207,12 @@ function App() {
         />
       </div>
       
+      {messages.length === 0 && <Welcome />}
+      
       <MessageList 
         messages={messages} 
         isLoading={isLoading}
+        className={messages.length > 0 ? 'flex-1' : 'hidden'}
       />
       
       <FileSelector 

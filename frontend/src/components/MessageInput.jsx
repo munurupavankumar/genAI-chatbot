@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Paperclip, Send, Camera, X } from 'lucide-react';
 
 const MessageInput = ({ 
@@ -17,7 +17,19 @@ const MessageInput = ({
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const textareaRef = useRef(null);
   const [stream, setStream] = useState(null);
+
+  // Add effect to adjust textarea height when input changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      // Calculate max height as 1/3 of viewport height
+      const maxHeight = window.innerHeight / 3;
+      textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
+  }, [inputText]);
 
   const handleCameraCapture = async () => {
     try {
@@ -141,11 +153,12 @@ const MessageInput = ({
         
         <div className="flex-1 bg-white rounded-full relative">
           <textarea
+            ref={textareaRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message"
-            className="w-full p-3 pr-12 rounded-full resize-none outline-none max-h-20"
+            placeholder="Paste the text you want to summarize"
+            className="w-full p-3 pr-12 rounded-full resize-none outline-none min-h-[40px] overflow-y-auto"
             rows={1}
           />
         </div>
