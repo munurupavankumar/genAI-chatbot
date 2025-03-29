@@ -4,7 +4,6 @@ import Header from './components/Header';
 import MessageList from './components/MessageList';
 import FileSelector from './components/FileSelector';
 import MessageInput from './components/MessageInput';
-import AudioPlayer from './components/AudioPlayer';
 import LanguageSelector from './components/LanguageSelector';
 import { detectFileType } from './utils/fileUtils';
 import { API_BASE_URL } from './config/api';

@@ -76,6 +76,7 @@ def extract_and_summarize_image(image_path: str, language: str = "te") -> dict:
     # Create language-specific system prompt with explicit language name
     system_prompt = (
         "You are a helpful assistant that extracts text from images and provides clear, well-formatted summaries. "
+        "IMPORTANT: Your summary MUST be between 500-1400 characters to ensure proper text-to-speech functionality. "
         "For longer texts, structure the summary with bullet points. "
         "For shorter texts, provide a concise paragraph. "
         "Use clean formatting without asterisks or markdown symbols. "
@@ -111,7 +112,7 @@ def extract_and_summarize_image(image_path: str, language: str = "te") -> dict:
     try:
         audio_base64 = text_to_speech_telugu(summary, language=language)
     except Exception as e:
-        audio_base64 = ""
+        audio_base64 = []  # Return empty array on error
         print(f"TTS generation failed: {e}")
     
     return {
@@ -148,7 +149,8 @@ def azure_chatgpt_summarization(text: str, language: str = "te") -> dict:
     
     # Create language-specific system prompt with explicit language name
     system_prompt = (
-        "You are a helpful assistant that summarizes texts succinctly and clearly. "
+        "You are a helpful assistant that summarizes texts succinctly, clearly and within specific length requirements. "
+        "IMPORTANT: Your summary MUST be between 500-1400 characters to ensure proper text-to-speech functionality. "
         "For longer texts, provide a well-structured summary with bullet points. "
         "For shorter texts, provide a concise paragraph. "
         "Use clean formatting without asterisks or markdown symbols. "
@@ -181,7 +183,7 @@ def azure_chatgpt_summarization(text: str, language: str = "te") -> dict:
     try:
         audio_base64 = text_to_speech_telugu(summary, language=language)
     except Exception as e:
-        audio_base64 = ""
+        audio_base64 = []  # Return empty array on error
         print(f"TTS generation failed: {e}")
     
     return {
