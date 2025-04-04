@@ -4,7 +4,6 @@ import Header from './components/Header';
 import MessageList from './components/MessageList';
 import FileSelector from './components/FileSelector';
 import MessageInput from './components/MessageInput';
-import LanguageSelector from './components/LanguageSelector';
 import Welcome from './components/Welcome';
 import { detectFileType } from './utils/fileUtils';
 import { API_BASE_URL } from './config/api';
@@ -98,9 +97,9 @@ function App() {
     // Add user message to chat
     let userMessage = inputText;
     if (selectedFile) {
-      userMessage = `Summarize this file: ${selectedFile.name}`;
+      userMessage = `${selectedFile.name}`;
     } else if (filePath) {
-      userMessage = `Summarize this URL: ${filePath}`;
+      userMessage = `${filePath}`;
     }
     
     const newUserMessage = {
@@ -198,22 +197,21 @@ function App() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      <Header />
+      <Header 
+        selectedLanguage={selectedLanguage} 
+        setSelectedLanguage={setSelectedLanguage} 
+      />
       
-      <div className="flex justify-end bg-white border-b border-gray-200 shadow-sm">
-        <LanguageSelector 
-          selectedLanguage={selectedLanguage} 
-          setSelectedLanguage={setSelectedLanguage} 
+      {/* Add wrapper with padding-bottom to create space for the fixed input */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {messages.length === 0 && <Welcome />}
+        
+        <MessageList 
+          messages={messages} 
+          isLoading={isLoading}
+          className={messages.length > 0 ? 'flex-1 pb-32' : 'hidden'} 
         />
       </div>
-      
-      {messages.length === 0 && <Welcome />}
-      
-      <MessageList 
-        messages={messages} 
-        isLoading={isLoading}
-        className={messages.length > 0 ? 'flex-1' : 'hidden'}
-      />
       
       <FileSelector 
         showFileSelector={showFileSelector}

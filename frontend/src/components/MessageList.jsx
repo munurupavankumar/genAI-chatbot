@@ -6,6 +6,7 @@ import { Loader } from "lucide-react";
 const MessageList = ({ messages, isLoading, className = "flex-1" }) => {
   const messagesEndRef = useRef(null);
 
+  // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -20,7 +21,7 @@ const MessageList = ({ messages, isLoading, className = "flex-1" }) => {
         </div>
       ) : (
         messages.map((message) => (
-          <div key={message.id}>
+          <div key={message.id} className="relative z-10">
             <Message 
               message={{
                 ...message,
@@ -30,16 +31,18 @@ const MessageList = ({ messages, isLoading, className = "flex-1" }) => {
             />
             {/* Render AudioPlayer directly if bot message has audio */}
             {message.sender === "bot" && message.audio && (
-              <AudioPlayer
-                audioBase64={message.audio}
-                language={message.language || "te"}
-              />
+              <div className="mt-2">
+                <AudioPlayer
+                  audioBase64={message.audio}
+                  language={message.language || "te"}
+                />
+              </div>
             )}
           </div>
         ))
       )}
       {isLoading && (
-        <div className="flex justify-start">
+        <div className="flex justify-start relative z-10">
           <div className="bg-gray-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
               <Loader size={20} className="animate-spin text-green-600" />
@@ -48,7 +51,7 @@ const MessageList = ({ messages, isLoading, className = "flex-1" }) => {
           </div>
         </div>
       )}
-      <div ref={messagesEndRef} />
+      <div ref={messagesEndRef} className="h-4" />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 import requests
 
@@ -34,6 +35,13 @@ def text_to_speech_telugu(text, speaker="manisha", pitch=0, pace=1, loudness=1, 
     
     # Get API key from environment variables
     api_key = os.getenv("api-subscription-key")
+    
+    # Final cleanup of any remaining special characters
+    # Remove all special formatting chars that could cause issues with TTS
+    text = re.sub(r'[*_~`#\r\n\t\f\v]', '', text)
+    # Replace multiple spaces with a single space
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
     
     # Max characters per chunk (API limit)
     max_chunk_chars = 500

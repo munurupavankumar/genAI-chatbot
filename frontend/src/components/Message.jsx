@@ -141,10 +141,10 @@ const Message = ({ message }) => {
 
   return (
     <div 
-      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+      className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} relative z-10`}
     >
       <div 
-        className={`rounded-lg p-3 max-w-xs md:max-w-md break-words relative ${
+        className={`rounded-lg p-3 md:max-w-md lg:max-w-lg break-words relative shadow-sm ${
           message.sender === 'user' 
             ? 'bg-green-100 text-black'
             : message.error 

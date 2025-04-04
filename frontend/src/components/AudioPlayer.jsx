@@ -198,9 +198,9 @@ const AudioPlayer = ({ audioBase64, language, autoplay = true }) => {
 
   if (error) {
     return (
-      <div className="w-1/3 bg-red-100 rounded-lg p-2 mt-2 flex items-center space-x-2">
-        <AlertCircle className="text-red-600" size={20} />
-        <span className="text-red-800">{error}</span>
+      <div className="w-full md:w-2/3 lg:w-1/3 bg-red-100 rounded-lg p-2 mt-2 flex items-center space-x-2 z-10 relative">
+        <AlertCircle className="text-red-600 flex-shrink-0" size={20} />
+        <span className="text-red-800 text-sm">{error}</span>
       </div>
     );
   }
@@ -208,11 +208,11 @@ const AudioPlayer = ({ audioBase64, language, autoplay = true }) => {
   if (!audioBase64) return null;
 
   return (
-    <div className="w-1/3 bg-gray-100 rounded-lg p-2 mt-2 flex items-center space-x-2">
+    <div className="w-full md:w-2/3 lg:w-1/3 bg-gray-100 rounded-lg p-2 mt-2 flex items-center space-x-2 z-10 relative shadow">
       {/* Play/Pause Button */}
       <button 
         onClick={togglePlay} 
-        className="text-blue-600 hover:text-blue-800 focus:outline-none"
+        className="text-green-600 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 rounded-full p-1 flex-shrink-0"
       >
         {isPlaying ? <Pause size={20} /> : <Play size={20} />}
       </button>
@@ -224,13 +224,13 @@ const AudioPlayer = ({ audioBase64, language, autoplay = true }) => {
         className="flex-grow bg-gray-300 h-2 rounded-full cursor-pointer"
       >
         <div 
-          className="bg-blue-500 h-2 rounded-full" 
+          className="bg-green-500 h-2 rounded-full" 
           style={{ width: `${(currentTime / duration) * 100 || 0}%` }}
         />
       </div>
 
       {/* Time Display */}
-      <div className="text-xs text-gray-600 w-16">
+      <div className="text-xs text-gray-600 w-16 flex-shrink-0">
         {formatTime(currentTime)} / {formatTime(duration)}
       </div>
     </div>

@@ -1,3 +1,8 @@
+/**
+ * DEPRECATED: This component has been integrated into the Header component.
+ * Please use the Header component with selectedLanguage and setSelectedLanguage props instead.
+ */
+
 import React, { useState } from 'react';
 
 const LanguageSelector = ({ selectedLanguage, setSelectedLanguage }) => {

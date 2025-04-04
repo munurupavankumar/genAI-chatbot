@@ -19,18 +19,38 @@ const MessageInput = ({
   const canvasRef = useRef(null);
   const textareaRef = useRef(null);
   const [stream, setStream] = useState(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  // Add effect to adjust textarea height when input changes
+  // Handle textarea auto-resize while respecting max height
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '0px';  // Reset height first
       const scrollHeight = textareaRef.current.scrollHeight;
-      // Calculate max height as 1/3 of viewport height
-      const maxHeight = window.innerHeight / 3;
+      // Limit max height to 5 lines (approximately)
+      const maxHeight = 120;
       textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
     }
   }, [inputText]);
 
+  // Fix viewport on mobile when keyboard appears
+  useEffect(() => {
+    // Prevent iOS Safari from resizing viewport when keyboard appears
+    const metaViewport = document.querySelector('meta[name=viewport]');
+    const originalContent = metaViewport ? metaViewport.getAttribute('content') : '';
+    
+    if (isFocused) {
+      // Update viewport to prevent resizing
+      document.querySelector('meta[name=viewport]')?.setAttribute(
+        'content', 
+        'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
+      );
+    } else if (originalContent) {
+      // Restore original viewport settings
+      document.querySelector('meta[name=viewport]')?.setAttribute('content', originalContent);
+    }
+  }, [isFocused]);
+
+  // Handle camera activation
   const handleCameraCapture = async () => {
     try {
       setShowCamera(true);
@@ -44,49 +64,39 @@ const MessageInput = ({
       }
     } catch (err) {
       console.error("Error accessing camera:", err);
-      setError("Could not access camera. Please check permissions.");
       setShowCamera(false);
     }
   };
 
+  // Take photo function
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       
-      // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      // Draw video frame to canvas
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Convert canvas to blob
       canvas.toBlob((blob) => {
-        // Create a File object from the blob
         const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
         
-        // Create a synthetic event object that exactly matches what handleFileChange expects
         const syntheticEvent = { 
           target: { 
             files: [file],
-            hasAttribute: () => true // Simulate the capture attribute
+            hasAttribute: () => true
           } 
         };
         
-        // Close camera first to avoid state issues
         closeCamera();
-        
-        // Process the file
         handleFileChange(syntheticEvent);
-        
-        // IMPORTANT: Let App.jsx handle the submission
-        // Removing the setTimeout and handleSubmit call here prevents double submissions
       }, 'image/jpeg', 0.95);
     }
   };
 
+  // Close camera function
   const closeCamera = () => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
@@ -95,16 +105,24 @@ const MessageInput = ({
     setShowCamera(false);
   };
 
+  // Check if textarea is empty
+  const isInputEmpty = !inputText.trim() && !selectedFile && !filePath.trim();
+
   return (
-    <div className="bg-gray-200 p-3">
-      {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-gray-50 border-t border-gray-200 shadow-md">
+      {error && (
+        <div className="bg-red-50 p-2 text-red-600 text-sm border-t border-red-200 flex items-center justify-center">
+          <span className="mr-2">⚠️</span> {error}
+        </div>
+      )}
       
+      {/* Camera modal */}
       {showCamera && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-20 flex flex-col items-center justify-center">
-          <div className="relative bg-black max-w-lg w-full">
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center">
+          <div className="relative bg-black w-full max-w-lg rounded-lg overflow-hidden">
             <button 
               onClick={closeCamera} 
-              className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full z-30"
+              className="absolute top-3 right-3 bg-black bg-opacity-50 text-white p-2 rounded-full z-50"
             >
               <X size={20} />
             </button>
@@ -118,55 +136,89 @@ const MessageInput = ({
             <div className="flex justify-center p-4 bg-black">
               <button 
                 onClick={takePhoto}
-                className="bg-white text-black rounded-full p-4"
+                className="bg-white text-black rounded-full p-4 shadow-lg"
+                aria-label="Take photo"
               >
-                <Camera size={24} />
+                <Camera size={28} />
               </button>
             </div>
           </div>
         </div>
       )}
       
-      <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-        <button
-          type="button"
-          onClick={() => setShowFileSelector(true)}
-          className="p-2 bg-gray-300 rounded-full text-gray-700 hover:bg-gray-400"
-        >
-          <Paperclip size={20} />
-        </button>
-
-        <button
-          type="button"
-          onClick={handleCameraCapture}
-          className="p-2 bg-gray-300 rounded-full text-gray-700 hover:bg-gray-400"
-        >
-          <Camera size={20} />
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            ref={cameraInputRef}
-            onChange={handleFileChange}
-          />
-        </button>
+      {/* Selected file indicator */}
+      {(selectedFile || filePath) && (
+        <div className="px-4 py-2 bg-green-50 flex items-center justify-between">
+          <div className="flex items-center text-sm text-green-800">
+            <Paperclip size={16} className="mr-2" />
+            <span className="truncate max-w-xs">
+              {selectedFile ? selectedFile.name : filePath.split('/').pop()}
+            </span>
+          </div>
+          <button className="text-red-500" onClick={() => {
+            // Clear the file (you'll need to add this functionality)
+          }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      
+      {/* Input form */}
+      <form 
+        onSubmit={handleSubmit} 
+        className="flex items-end p-2 gap-1 bg-gray-50"
+      >
+        {/* Left icons */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setShowFileSelector(true)}
+            className="p-2 text-gray-600 hover:text-gray-800 border border-gray-300 bg-white rounded-full transition-colors"
+            aria-label="Attach file"
+          >
+            <Paperclip size={22} />
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleCameraCapture}
+            className="p-2 text-gray-600 hover:text-gray-800 border border-gray-300 bg-white rounded-full transition-colors"
+            aria-label="Open camera"
+          >
+            <Camera size={22} />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              ref={cameraInputRef}
+              onChange={handleFileChange}
+            />
+          </button>
+        </div>
         
-        <div className="flex-1 bg-white rounded-full relative">
+        {/* Text input area */}
+        <div className="flex-1 bg-white rounded-3xl border border-gray-300 flex items-end overflow-hidden">
           <textarea
             ref={textareaRef}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             placeholder="Paste the text you want to summarize"
-            className="w-full p-3 pr-12 rounded-full resize-none outline-none min-h-[40px] overflow-y-auto"
+            className="flex-1 py-2 px-4 outline-none resize-none min-h-[40px] max-h-[120px] overflow-y-auto scrollbar-thin"
             rows={1}
           />
         </div>
         
+        {/* Send button */}
         <button
           type="submit"
-          disabled={isLoading || (!inputText.trim() && !selectedFile && !filePath.trim())}
-          className="p-2 bg-green-600 rounded-full text-white hover:bg-green-700 disabled:opacity-50"
+          disabled={isLoading || isInputEmpty}
+          className={`p-3 rounded-full flex items-center justify-center ${
+            isInputEmpty ? 'bg-gray-200 text-gray-500' : 'bg-green-600 text-white'
+          } transition-colors`}
+          aria-label="Send message"
         >
           <Send size={20} />
         </button>

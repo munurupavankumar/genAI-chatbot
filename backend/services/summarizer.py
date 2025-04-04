@@ -1,6 +1,7 @@
 # File: backend/services/summarizer.py
 import os
 import base64
+import re
 from pathlib import Path
 from openai import OpenAI
 
@@ -38,6 +39,28 @@ def get_language_name(language_code):
         'pa': 'Punjabi'
     }
     return language_map.get(language_code, 'English')
+
+def clean_text_for_tts(text):
+    """
+    Remove formatting characters that might cause issues with the TTS API.
+    Keeps the text clean for API processing while preserving basic punctuation.
+    
+    :param text: Input text with potential formatting characters
+    :return: Cleaned text suitable for TTS API
+    """
+    # Replace multiple newlines with a single space
+    cleaned = re.sub(r'\n+', ' ', text)
+    
+    # Remove markdown formatting characters (asterisks, underscores, etc.)
+    cleaned = re.sub(r'[*_~`#]', '', cleaned)
+    
+    # Replace multiple spaces with a single space
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    
+    # Remove any other special formatting characters that might cause issues
+    cleaned = re.sub(r'[\r\t\f\v]', '', cleaned)
+    
+    return cleaned.strip()
 
 def extract_and_summarize_image(image_path: str, language: str = "te") -> dict:
     """
@@ -110,7 +133,9 @@ def extract_and_summarize_image(image_path: str, language: str = "te") -> dict:
     
     # Generate text-to-speech for the summary
     try:
-        audio_base64 = text_to_speech_telugu(summary, language=language)
+        # Clean the text before sending to TTS service
+        cleaned_summary = clean_text_for_tts(summary)
+        audio_base64 = text_to_speech_telugu(cleaned_summary, language=language)
     except Exception as e:
         audio_base64 = []  # Return empty array on error
         print(f"TTS generation failed: {e}")
@@ -181,7 +206,9 @@ def azure_chatgpt_summarization(text: str, language: str = "te") -> dict:
     
     # Generate text-to-speech for the summary
     try:
-        audio_base64 = text_to_speech_telugu(summary, language=language)
+        # Clean the text before sending to TTS service
+        cleaned_summary = clean_text_for_tts(summary)
+        audio_base64 = text_to_speech_telugu(cleaned_summary, language=language)
     except Exception as e:
         audio_base64 = []  # Return empty array on error
         print(f"TTS generation failed: {e}")
