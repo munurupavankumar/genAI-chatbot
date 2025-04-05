@@ -6,15 +6,15 @@ const Header = ({ selectedLanguage, setSelectedLanguage }) => {
   
   const languages = [
     { code: 'en', name: 'English' },
-    { code: 'hi', name: 'Hindi' },
-    { code: 'te', name: 'Telugu' },
-    { code: 'ta', name: 'Tamil' },
-    { code: 'bn', name: 'Bengali' },
-    { code: 'mr', name: 'Marathi' },
-    { code: 'gu', name: 'Gujarati' },
-    { code: 'kn', name: 'Kannada' },
-    { code: 'ml', name: 'Malayalam' },
-    { code: 'pa', name: 'Punjabi' },
+    { code: 'hi', name: 'हिन्दी' },
+    { code: 'te', name: 'తెలుగు' },
+    { code: 'ta', name: 'தமிழ்' },
+    { code: 'bn', name: 'বাংলা' },
+    { code: 'mr', name: 'मराठी' },
+    { code: 'gu', name: 'ગુજરાતી' },
+    { code: 'kn', name: 'ಕನ್ನಡ' },
+    { code: 'ml', name: 'മലയാളം' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ' },
   ];
 
   // Click outside handler
