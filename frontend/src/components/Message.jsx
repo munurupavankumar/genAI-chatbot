@@ -1,4 +1,5 @@
 import React from 'react';
+import { FileText, FileImage, FileAudio, FileVideo, File } from 'lucide-react';
 
 const Message = ({ message }) => {
   // Enhanced function to format AI-generated text with proper markdown handling
@@ -139,6 +140,74 @@ const Message = ({ message }) => {
     return { __html: formatSummaryText(text) };
   };
 
+  // Determine file icon based on file type
+  const getFileIcon = (fileName) => {
+    const extension = fileName.split('.').pop().toLowerCase();
+    
+    // Image extensions
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) {
+      return <FileImage size={24} className="text-blue-500" />;
+    }
+    // PDF
+    else if (extension === 'pdf') {
+      return <FileText size={24} className="text-red-500" />;
+    }
+    // Audio
+    else if (['mp3', 'wav', 'ogg', 'aac'].includes(extension)) {
+      return <FileAudio size={24} className="text-purple-500" />;
+    }
+    // Video
+    else if (['mp4', 'webm', 'avi', 'mov'].includes(extension)) {
+      return <FileVideo size={24} className="text-green-500" />;
+    }
+    // Text/Document
+    else if (['txt', 'doc', 'docx', 'rtf', 'odt'].includes(extension)) {
+      return <FileText size={24} className="text-orange-500" />;
+    }
+    // Default file icon
+    else {
+      return <File size={24} className="text-gray-500" />;
+    }
+  };
+
+  // Function to check if the message contains a file
+  const isFileMessage = (text) => {
+    // Simple check - adjust based on your actual file message format
+    return message.file || (message.sender === 'user' && message.fileType);
+  };
+
+  // Function to render file preview based on file type
+  const renderFilePreview = () => {
+    // If we have an actual file object with preview URL
+    if (message.filePreviewUrl) {
+      return (
+        <div className="file-preview">
+          <div className="w-full max-w-[200px] rounded-lg overflow-hidden mb-2">
+            <img 
+              src={message.filePreviewUrl} 
+              alt="File preview" 
+              className="w-full h-auto object-cover"
+            />
+          </div>
+          <div className="text-sm">{message.text}</div>
+        </div>
+      );
+    }
+    
+    // If it's a file but we don't have a preview (non-image or URL not available)
+    // Display icon with file name
+    return (
+      <div className="file-info flex items-center">
+        <div className="mr-2">
+          {getFileIcon(message.text)}
+        </div>
+        <div className="text-sm overflow-hidden text-ellipsis">
+          {message.text}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div 
       className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'} relative z-10`}
@@ -157,6 +226,8 @@ const Message = ({ message }) => {
             className="summary-content prose prose-sm max-w-none"
             dangerouslySetInnerHTML={createMarkup(message.text)}
           />
+        ) : isFileMessage() ? (
+          renderFilePreview()
         ) : (
           message.text
         )}

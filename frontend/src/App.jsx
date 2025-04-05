@@ -67,6 +67,20 @@ function App() {
     return formattedText.trim();
   };
 
+  // Create file preview URL for images
+  const createFilePreview = (file) => {
+    if (!file) return null;
+    
+    // Check if file is an image
+    const isImage = file.type.startsWith('image/');
+    
+    if (isImage) {
+      return URL.createObjectURL(file);
+    }
+    
+    return null; // For non-image files, no preview
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -95,21 +109,36 @@ function App() {
     }
     
     // Add user message to chat
-    let userMessage = inputText;
-    if (selectedFile) {
-      userMessage = `${selectedFile.name}`;
-    } else if (filePath) {
-      userMessage = `${filePath}`;
-    }
-    
-    const newUserMessage = {
+    let userMessage = {
       id: Date.now(),
-      text: userMessage,
       sender: 'user',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     
-    setMessages(prev => [...prev, newUserMessage]);
+    if (selectedFile) {
+      // Include file information in the message
+      userMessage = {
+        ...userMessage,
+        text: selectedFile.name,
+        file: true,
+        fileType: selectedFile.type,
+        filePreviewUrl: createFilePreview(selectedFile)
+      };
+    } else if (filePath) {
+      userMessage = {
+        ...userMessage,
+        text: filePath,
+        file: true,
+        fileType: fileType
+      };
+    } else {
+      userMessage = {
+        ...userMessage,
+        text: inputText
+      };
+    }
+    
+    setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setShowFileSelector(false);
     setIsLoading(true);
@@ -157,6 +186,11 @@ function App() {
       };
       
       setMessages(prev => [...prev, newBotMessage]);
+      
+      // Clean up any object URLs to prevent memory leaks
+      if (userMessage.filePreviewUrl) {
+        URL.revokeObjectURL(userMessage.filePreviewUrl);
+      }
     } catch (error) {
       console.error('Error details:', error);
       
@@ -194,6 +228,17 @@ function App() {
       handleSubmit();
     }
   };
+
+  useEffect(() => {
+    // Clean up any object URLs on component unmount
+    return () => {
+      messages.forEach(message => {
+        if (message.filePreviewUrl) {
+          URL.revokeObjectURL(message.filePreviewUrl);
+        }
+      });
+    };
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
