@@ -2,7 +2,6 @@ import React from 'react';
 import { X } from 'lucide-react';
 import FileUpload from './FileUpload';
 import UrlInput from './UrlInput';
-import FileTypeSelector from './FileTypeSelector';
 
 const FileSelector = ({ 
   showFileSelector, 
@@ -66,8 +65,6 @@ const FileSelector = ({
         ) : (
           <UrlInput filePath={filePath} setFilePath={setFilePath} />
         )}
-        
-        <FileTypeSelector fileType={fileType} setFileType={setFileType} />
         
         <div className="flex justify-end">
           <button

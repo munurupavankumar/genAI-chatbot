@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ['d72e-103-95-173-255.ngrok-free.app'], // Allow your ngrok host
+    allowedHosts: ['2efd-103-95-173-255.ngrok-free.app'], // Allow your ngrok host
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
